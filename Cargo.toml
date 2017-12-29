@@ -1,0 +1,13 @@
+[package]
+name = "virtual-kubelet-adapter"
+version = "0.1.0"
+authors = ["Rajasekharan Vengalil <rajave@microsoft.com>"]
+
+[dependencies]
+iron = "0.6.0"
+router = "0.6.0"
+bodyparser = "0.8.0"
+serde_json = "1.0.8"
+persistent = "0.4.0"
+num = "0.1.41"
+kube_rust = { git = "https://github.com/avranju/kube-rust", rev = "0ef6b51a36e1c3a92f7e1064212358e605fd7253" }
