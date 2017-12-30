@@ -1,14 +1,15 @@
+use iron::error::HttpError;
+use iron::Listening;
 use iron::prelude::*;
 use persistent::Read;
 use router::Router;
 
 use provider::Provider;
-use result::Result;
 use routes;
 use utils;
 use types::ProviderState;
 
-pub fn start_server<T>(prov: Box<T>) -> Result<()>
+pub fn start_server<T>(prov: Box<T>) -> Result<Listening, HttpError>
 where
     T: Provider + 'static + Send + Sync,
 {
@@ -25,9 +26,7 @@ where
 
     // start the web server
     let port = utils::get_env_integral("PORT", Ok(3000u16));
-    Iron::new(chain).http(format!("0.0.0.0:{}", port)).unwrap();
-
-    Ok(())
+    Iron::new(chain).http(format!("0.0.0.0:{}", port))
 }
 
 fn setup_route_map<T>() -> Router
@@ -38,12 +37,12 @@ where
         index: get "/" => routes::default,
         create_pod: post "/createPod" => routes::create_pod::<T>,
         update_pod: put "/updatePod" => routes::update_pod::<T>,
-        delete_pod: put "/deletePod" => routes::delete_pod::<T>,
-        get_pod: put "/getPod" => routes::get_pod::<T>,
-        get_pod_status: put "/getPodStatus" => routes::get_pod_status::<T>,
-        get_pods: put "/getPods" => routes::get_pods::<T>,
-        capacity: put "/capacity" => routes::capacity::<T>,
-        node_conditions: put "/nodeConditions" => routes::node_conditions::<T>,
-        operating_system: put "/operatingSystem" => routes::operating_system::<T>,
+        delete_pod: delete "/deletePod" => routes::delete_pod::<T>,
+        get_pod: get "/getPod" => routes::get_pod::<T>,
+        get_pod_status: get "/getPodStatus" => routes::get_pod_status::<T>,
+        get_pods: get "/getPods" => routes::get_pods::<T>,
+        capacity: get "/capacity" => routes::capacity::<T>,
+        node_conditions: get "/nodeConditions" => routes::node_conditions::<T>,
+        operating_system: get "/operatingSystem" => routes::operating_system::<T>,
     )
 }
