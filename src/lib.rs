@@ -5,6 +5,7 @@ extern crate num;
 extern crate persistent;
 #[macro_use]
 extern crate router;
+extern crate serde;
 extern crate serde_json;
 
 mod provider;

@@ -35,8 +35,15 @@ where
     T: Provider + 'static + Send + Sync,
 {
     router!(
-    index: get "/" => routes::default,
-    create_pod: post "/createPod" => routes::create_pod::<T>,
-    update_pod: put "/updatePod" => routes::update_pod
-  )
+        index: get "/" => routes::default,
+        create_pod: post "/createPod" => routes::create_pod::<T>,
+        update_pod: put "/updatePod" => routes::update_pod::<T>,
+        delete_pod: put "/deletePod" => routes::delete_pod::<T>,
+        get_pod: put "/getPod" => routes::get_pod::<T>,
+        get_pod_status: put "/getPodStatus" => routes::get_pod_status::<T>,
+        get_pods: put "/getPods" => routes::get_pods::<T>,
+        capacity: put "/capacity" => routes::capacity::<T>,
+        node_conditions: put "/nodeConditions" => routes::node_conditions::<T>,
+        operating_system: put "/operatingSystem" => routes::operating_system::<T>,
+    )
 }

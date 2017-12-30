@@ -7,6 +7,7 @@ authors = ["Rajasekharan Vengalil <rajave@microsoft.com>"]
 iron = "0.6.0"
 router = "0.6.0"
 bodyparser = "0.8.0"
+serde = "1.0.26"
 serde_json = "1.0.8"
 persistent = "0.4.0"
 num = "0.1.41"
