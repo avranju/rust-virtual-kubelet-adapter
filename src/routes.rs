@@ -2,7 +2,6 @@ use router::Router;
 use utils::get_provider;
 use kube_rust::models::V1Pod;
 use types::ProviderState;
-use std::sync::Arc;
 use provider::Provider;
 use iron::prelude::*;
 use iron::status;
@@ -21,6 +20,9 @@ pub fn create_pod<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
+    let provider_ref = get_provider::<T>(req);
+    let mut provider = provider_ref.write().unwrap();
+
     // The sequence of combinators here does the following:
     //  [1] If get_provider_pod returns an Err((status, string)) then that gets
     //      directly assigned to "result".
@@ -39,7 +41,7 @@ where
     //      would be used if 'create_pod' was successful and the error value
     //      as-is in case it failed.
     let result = get_provider_pod::<T>(req)
-        .map(|(provider, pod)| provider.prov.create_pod(&pod))
+        .map(|pod| provider.prov.create_pod(&pod))
         .and_then(|result| result.map_err(|err| (status::InternalServerError, err.message)))
         .err()
         .map_or((status::Ok, "Pod created".to_string()), |e| e);
@@ -51,9 +53,12 @@ pub fn update_pod<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
+    let provider_ref = get_provider::<T>(req);
+    let mut provider = provider_ref.write().unwrap();
+
     // See comments in "create_pod" to help understand what this line does.
     let result = get_provider_pod::<T>(req)
-        .map(|(provider, pod)| provider.prov.update_pod(&pod))
+        .map(|pod| provider.prov.update_pod(&pod))
         .and_then(|result| result.map_err(|err| (status::InternalServerError, err.message)))
         .err()
         .map_or((status::Ok, "Pod updated".to_string()), |e| e);
@@ -61,18 +66,13 @@ where
     Ok(Response::with(result))
 }
 
-fn get_provider_pod<T>(
-    req: &mut Request,
-) -> Result<(Arc<ProviderState<T>>, V1Pod), (status::Status, String)>
+fn get_provider_pod<T>(req: &mut Request) -> Result<V1Pod, (status::Status, String)>
 where
     T: Provider + 'static + Send + Sync,
 {
     let pod_body = req.get::<bodyparser::Struct<V1Pod>>();
     match pod_body {
-        Ok(Some(pod)) => {
-            let provider = get_provider::<T>(req);
-            Ok((provider, pod))
-        }
+        Ok(Some(pod)) => Ok(pod),
         Ok(None) => Err((
             status::BadRequest,
             "Empty pod specification received".to_string(),
@@ -88,9 +88,12 @@ pub fn delete_pod<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
+    let provider_ref = get_provider::<T>(req);
+    let mut provider = provider_ref.write().unwrap();
+
     // See comments in "create_pod" to help understand what this line does.
     let result = get_provider_pod::<T>(req)
-        .map(|(provider, pod)| provider.prov.delete_pod(&pod))
+        .map(|pod| provider.prov.delete_pod(&pod))
         .and_then(|result| result.map_err(|err| (status::InternalServerError, err.message)))
         .err()
         .map_or((status::Ok, "Pod deleted".to_string()), |e| e);
@@ -102,7 +105,7 @@ pub fn get_pod<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: Arc<ProviderState<T>>, ns, name| {
+    get_pod_helper(req, |provider: &ProviderState<T>, ns, name| {
         provider.prov.get_pod(ns, name)
     })
 }
@@ -111,7 +114,7 @@ pub fn get_pod_status<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: Arc<ProviderState<T>>, ns, name| {
+    get_pod_helper(req, |provider: &ProviderState<T>, ns, name| {
         provider.prov.get_pod_status(ns, name)
     })
 }
@@ -120,7 +123,7 @@ pub fn get_pods<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: Arc<ProviderState<T>>, _, _| {
+    get_pod_helper(req, |provider: &ProviderState<T>, _, _| {
         provider.prov.get_pods()
     })
 }
@@ -129,7 +132,7 @@ pub fn capacity<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: Arc<ProviderState<T>>, _, _| {
+    get_pod_helper(req, |provider: &ProviderState<T>, _, _| {
         provider.prov.capacity()
     })
 }
@@ -138,7 +141,7 @@ pub fn node_conditions<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: Arc<ProviderState<T>>, _, _| {
+    get_pod_helper(req, |provider: &ProviderState<T>, _, _| {
         provider.prov.node_conditions()
     })
 }
@@ -146,15 +149,17 @@ where
 fn get_pod_helper<T, F, P>(req: &mut Request, get_data: F) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
-    F: Fn(Arc<ProviderState<T>>, &str, &str) -> ::result::Result<P>,
+    F: Fn(&ProviderState<T>, &str, &str) -> ::result::Result<P>,
     P: Serialize,
 {
-    let provider = get_provider::<T>(req);
+    let provider_ref = get_provider::<T>(req);
+    let provider = provider_ref.write().unwrap();
+
     let params = req.extensions.get::<Router>().unwrap();
     let ns = params.find("namespace").map_or("", |n| n);
     let name = params.find("name").map_or("", |n| n);
 
-    let result = match get_data(provider, ns, name) {
+    let result = match get_data(&provider, ns, name) {
         Ok(data) => serde_json::to_string(&data)
             .map_err(|e| (status::InternalServerError, format!("{}", e))),
         Err(err) => Err((status::InternalServerError, err.message)),
@@ -170,8 +175,11 @@ pub fn operating_system<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
+    let provider_ref = get_provider::<T>(req);
+    let provider = provider_ref.write().unwrap();
+
     Ok(Response::with((
         status::Ok,
-        get_provider::<T>(req).prov.operating_system(),
+        provider.prov.operating_system(),
     )))
 }

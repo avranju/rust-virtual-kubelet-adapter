@@ -1,7 +1,7 @@
 use iron::prelude::*;
 use num;
-use persistent::Read;
-use std::sync::Arc;
+use persistent::State;
+use std::sync::{Arc, RwLock};
 use provider::Provider;
 use types::ProviderState;
 
@@ -17,11 +17,11 @@ where
     val.ok().unwrap()
 }
 
-pub fn get_provider<T>(req: &mut Request) -> Arc<ProviderState<T>>
+pub fn get_provider<T>(req: &mut Request) -> Arc<RwLock<ProviderState<T>>>
 where
     T: Provider + 'static + Send + Sync,
 {
     // we want to panic if this fails because the provider *SHOULD* have been
     // injected from "start_server"
-    req.get::<Read<ProviderState<T>>>().unwrap()
+    req.get::<State<ProviderState<T>>>().unwrap()
 }

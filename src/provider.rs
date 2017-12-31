@@ -4,11 +4,11 @@ use std::collections::BTreeMap;
 use result::Result;
 
 pub trait Provider {
-    fn create_pod(&self, pod: &V1Pod) -> Result<()>;
+    fn create_pod(&mut self, pod: &V1Pod) -> Result<()>;
 
-    fn update_pod(&self, pod: &V1Pod) -> Result<()>;
+    fn update_pod(&mut self, pod: &V1Pod) -> Result<()>;
 
-    fn delete_pod(&self, pod: &V1Pod) -> Result<()>;
+    fn delete_pod(&mut self, pod: &V1Pod) -> Result<()>;
 
     fn get_pod(&self, namespace: &str, name: &str) -> Result<V1Pod>;
 

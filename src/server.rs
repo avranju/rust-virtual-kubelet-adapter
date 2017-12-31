@@ -1,7 +1,7 @@
 use iron::error::HttpError;
 use iron::Listening;
 use iron::prelude::*;
-use persistent::Read;
+use persistent::State;
 use router::Router;
 
 use provider::Provider;
@@ -19,7 +19,7 @@ where
     let provider_state = ProviderState { prov };
 
     // this object manages thread-safe access to the shared provider state
-    let safe_provider_state = Read::<ProviderState<T>>::one(provider_state);
+    let safe_provider_state = State::<ProviderState<T>>::one(provider_state);
 
     // add a "before" middleware for injecting our provider state
     chain.link_before(safe_provider_state);
