@@ -1,4 +1,4 @@
-use kube_rust::models::{ResourceQuantity, V1NodeCondition, V1Pod, V1PodStatus};
+use kube_rust::models::{V1NodeCondition, V1Pod, V1PodStatus};
 use std::collections::BTreeMap;
 
 use result::Result;
@@ -16,7 +16,7 @@ pub trait Provider {
 
     fn get_pods(&self) -> Result<Vec<V1Pod>>;
 
-    fn capacity(&self) -> Result<BTreeMap<String, ResourceQuantity>>;
+    fn capacity(&self) -> Result<BTreeMap<String, String>>;
 
     fn node_conditions(&self) -> Result<Vec<V1NodeCondition>>;
 
