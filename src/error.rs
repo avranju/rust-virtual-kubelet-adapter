@@ -2,14 +2,29 @@ use std::fmt::{Display, Formatter};
 use std::fmt;
 
 #[derive(Debug, Clone)]
+pub enum ErrorType {
+    Unknown,
+    NotFound,
+}
+
+#[derive(Debug, Clone)]
 pub struct Error {
     pub message: String,
+    pub etype: ErrorType,
 }
 
 impl Error {
     pub fn new(msg: &str) -> Self {
         Error {
             message: String::from(msg),
+            etype: ErrorType::Unknown,
+        }
+    }
+
+    pub fn not_found(msg: &str) -> Self {
+        Error {
+            message: String::from(msg),
+            etype: ErrorType::NotFound,
         }
     }
 }

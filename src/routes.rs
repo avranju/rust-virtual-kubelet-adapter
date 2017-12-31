@@ -10,6 +10,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::borrow::Cow;
 use url;
+use error::{Error, ErrorType};
 
 pub fn default(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((
@@ -44,7 +45,7 @@ where
     //      as-is in case it failed.
     let result = get_provider_pod::<T>(req)
         .map(|pod| provider.prov.create_pod(&pod))
-        .and_then(|result| result.map_err(|err| (status::InternalServerError, err.message)))
+        .and_then(|result| result.map_err(|err| (provider_error_to_iron_status(&err), err.message)))
         .err()
         .map_or((status::Ok, "Pod created".to_string()), |e| e);
 
@@ -61,7 +62,7 @@ where
     // See comments in "create_pod" to help understand what this line does.
     let result = get_provider_pod::<T>(req)
         .map(|pod| provider.prov.update_pod(&pod))
-        .and_then(|result| result.map_err(|err| (status::InternalServerError, err.message)))
+        .and_then(|result| result.map_err(|err| (provider_error_to_iron_status(&err), err.message)))
         .err()
         .map_or((status::Ok, "Pod updated".to_string()), |e| e);
 
@@ -78,7 +79,7 @@ where
     // See comments in "create_pod" to help understand what this line does.
     let result = get_provider_pod::<T>(req)
         .map(|pod| provider.prov.delete_pod(&pod))
-        .and_then(|result| result.map_err(|err| (status::InternalServerError, err.message)))
+        .and_then(|result| result.map_err(|err| (provider_error_to_iron_status(&err), err.message)))
         .err()
         .map_or((status::Ok, "Pod deleted".to_string()), |e| e);
 
@@ -158,6 +159,13 @@ where
     })
 }
 
+fn provider_error_to_iron_status(err: &Error) -> status::Status {
+    match err.etype {
+        ErrorType::NotFound => status::NotFound,
+        ErrorType::Unknown => status::InternalServerError,
+    }
+}
+
 fn get_pod_helper<T, F, P>(req: &mut Request, get_data: F) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
@@ -174,7 +182,7 @@ where
     let result = match get_data(&provider, &query) {
         Ok(data) => serde_json::to_string(&data)
             .map_err(|e| (status::InternalServerError, format!("{}", e))),
-        Err(err) => Err((status::InternalServerError, err.message)),
+        Err(err) => Err((provider_error_to_iron_status(&err), err.message)),
     };
 
     match result {
