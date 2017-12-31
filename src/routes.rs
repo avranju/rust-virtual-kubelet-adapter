@@ -1,4 +1,3 @@
-use router::Router;
 use utils::get_provider;
 use kube_rust::models::V1Pod;
 use types::ProviderState;
@@ -8,6 +7,9 @@ use iron::status;
 use bodyparser;
 use serde_json;
 use serde::Serialize;
+use std::collections::HashMap;
+use std::borrow::Cow;
+use url;
 
 pub fn default(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((
@@ -105,7 +107,12 @@ pub fn get_pod<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: &ProviderState<T>, ns, name| {
+    let empty = &Cow::Borrowed("");
+    get_pod_helper(req, |provider: &ProviderState<T>, query| {
+        let (ns, name) = (
+            query.get("namespace").unwrap_or(&empty),
+            query.get("name").unwrap_or(&empty),
+        );
         provider.prov.get_pod(ns, name)
     })
 }
@@ -114,7 +121,12 @@ pub fn get_pod_status<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: &ProviderState<T>, ns, name| {
+    let empty = &Cow::Borrowed("");
+    get_pod_helper(req, |provider: &ProviderState<T>, query| {
+        let (ns, name) = (
+            query.get("namespace").unwrap_or(&empty),
+            query.get("name").unwrap_or(&empty),
+        );
         provider.prov.get_pod_status(ns, name)
     })
 }
@@ -123,7 +135,7 @@ pub fn get_pods<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: &ProviderState<T>, _, _| {
+    get_pod_helper(req, |provider: &ProviderState<T>, _| {
         provider.prov.get_pods()
     })
 }
@@ -132,7 +144,7 @@ pub fn capacity<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: &ProviderState<T>, _, _| {
+    get_pod_helper(req, |provider: &ProviderState<T>, _| {
         provider.prov.capacity()
     })
 }
@@ -141,7 +153,7 @@ pub fn node_conditions<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
 {
-    get_pod_helper(req, |provider: &ProviderState<T>, _, _| {
+    get_pod_helper(req, |provider: &ProviderState<T>, _| {
         provider.prov.node_conditions()
     })
 }
@@ -149,17 +161,17 @@ where
 fn get_pod_helper<T, F, P>(req: &mut Request, get_data: F) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
-    F: Fn(&ProviderState<T>, &str, &str) -> ::result::Result<P>,
+    F: Fn(&ProviderState<T>, &HashMap<Cow<str>, Cow<str>>) -> ::result::Result<P>,
     P: Serialize,
 {
+    // parse query string into a map
+    let url: url::Url = req.url.clone().into();
+    let query: HashMap<_, _> = url.query_pairs().collect();
+
     let provider_ref = get_provider::<T>(req);
     let provider = provider_ref.write().unwrap();
 
-    let params = req.extensions.get::<Router>().unwrap();
-    let ns = params.find("namespace").map_or("", |n| n);
-    let name = params.find("name").map_or("", |n| n);
-
-    let result = match get_data(&provider, ns, name) {
+    let result = match get_data(&provider, &query) {
         Ok(data) => serde_json::to_string(&data)
             .map_err(|e| (status::InternalServerError, format!("{}", e))),
         Err(err) => Err((status::InternalServerError, err.message)),

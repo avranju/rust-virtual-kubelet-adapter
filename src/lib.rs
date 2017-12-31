@@ -7,6 +7,7 @@ extern crate persistent;
 extern crate router;
 extern crate serde;
 extern crate serde_json;
+extern crate url;
 
 mod provider;
 pub use self::provider::Provider;
