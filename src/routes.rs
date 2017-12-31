@@ -68,6 +68,23 @@ where
     Ok(Response::with(result))
 }
 
+pub fn delete_pod<T>(req: &mut Request) -> IronResult<Response>
+where
+    T: Provider + 'static + Send + Sync,
+{
+    let provider_ref = get_provider::<T>(req);
+    let mut provider = provider_ref.write().unwrap();
+
+    // See comments in "create_pod" to help understand what this line does.
+    let result = get_provider_pod::<T>(req)
+        .map(|pod| provider.prov.delete_pod(&pod))
+        .and_then(|result| result.map_err(|err| (status::InternalServerError, err.message)))
+        .err()
+        .map_or((status::Ok, "Pod deleted".to_string()), |e| e);
+
+    Ok(Response::with(result))
+}
+
 fn get_provider_pod<T>(req: &mut Request) -> Result<V1Pod, (status::Status, String)>
 where
     T: Provider + 'static + Send + Sync,
@@ -84,23 +101,6 @@ where
             "Invalid pod specification received".to_string(),
         )),
     }
-}
-
-pub fn delete_pod<T>(req: &mut Request) -> IronResult<Response>
-where
-    T: Provider + 'static + Send + Sync,
-{
-    let provider_ref = get_provider::<T>(req);
-    let mut provider = provider_ref.write().unwrap();
-
-    // See comments in "create_pod" to help understand what this line does.
-    let result = get_provider_pod::<T>(req)
-        .map(|pod| provider.prov.delete_pod(&pod))
-        .and_then(|result| result.map_err(|err| (status::InternalServerError, err.message)))
-        .err()
-        .map_or((status::Ok, "Pod deleted".to_string()), |e| e);
-
-    Ok(Response::with(result))
 }
 
 pub fn get_pod<T>(req: &mut Request) -> IronResult<Response>
@@ -169,7 +169,7 @@ where
     let query: HashMap<_, _> = url.query_pairs().collect();
 
     let provider_ref = get_provider::<T>(req);
-    let provider = provider_ref.write().unwrap();
+    let provider = provider_ref.read().unwrap();
 
     let result = match get_data(&provider, &query) {
         Ok(data) => serde_json::to_string(&data)
