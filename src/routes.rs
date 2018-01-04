@@ -118,6 +118,23 @@ where
     })
 }
 
+pub fn get_container_logs<T>(req: &mut Request) -> IronResult<Response>
+where
+    T: Provider + 'static + Send + Sync,
+{
+    let empty = &Cow::Borrowed("");
+    let default_tail = 5i32;
+    get_pod_helper(req, |provider: &ProviderState<T>, query| {
+        let (ns, pod_name, container_name, tail) = (
+            query.get("namespace").unwrap_or(&empty),
+            query.get("podName").unwrap_or(&empty),
+            query.get("containerName").unwrap_or(&empty),
+            query.get("tail").map(|tail| i32::from_str_radix(tail, 10).unwrap_or(default_tail)).unwrap_or(default_tail)
+        );
+        provider.prov.get_container_logs(ns, pod_name, container_name, tail)
+    })
+}
+
 pub fn get_pod_status<T>(req: &mut Request) -> IronResult<Response>
 where
     T: Provider + 'static + Send + Sync,
@@ -156,6 +173,24 @@ where
 {
     get_pod_helper(req, |provider: &ProviderState<T>, _| {
         provider.prov.node_conditions()
+    })
+}
+
+pub fn node_addresses<T>(req: &mut Request) -> IronResult<Response>
+where
+    T: Provider + 'static + Send + Sync,
+{
+    get_pod_helper(req, |provider: &ProviderState<T>, _| {
+        provider.prov.node_addresses()
+    })
+}
+
+pub fn node_daemon_endpoints<T>(req: &mut Request) -> IronResult<Response>
+where
+    T: Provider + 'static + Send + Sync,
+{
+    get_pod_helper(req, |provider: &ProviderState<T>, _| {
+        provider.prov.node_daemon_endpoints()
     })
 }
 

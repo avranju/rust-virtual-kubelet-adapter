@@ -39,10 +39,13 @@ where
         update_pod: put "/updatePod" => routes::update_pod::<T>,
         delete_pod: delete "/deletePod" => routes::delete_pod::<T>,
         get_pod: get "/getPod" => routes::get_pod::<T>,
+        get_container_logs: get "/getContainerLogs" => routes::get_container_logs::<T>,
         get_pod_status: get "/getPodStatus" => routes::get_pod_status::<T>,
         get_pods: get "/getPods" => routes::get_pods::<T>,
         capacity: get "/capacity" => routes::capacity::<T>,
         node_conditions: get "/nodeConditions" => routes::node_conditions::<T>,
+        node_addresses: get "/nodeAddresses" => routes::node_addresses::<T>,
+        node_daemon_endpoints: get "/nodeDaemonEndpoints" => routes::node_daemon_endpoints::<T>,
         operating_system: get "/operatingSystem" => routes::operating_system::<T>,
     )
 }
